@@ -1,0 +1,3 @@
+#+TITLE: Readme
+
+* This is a repository for basic python scripts and automation tasks
