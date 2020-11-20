@@ -1,113 +1,77 @@
-#!/bin/python3
-from datetime import datetime
-from email import emails
-from os import listdir, system
-from time import sleep
+#!/usr/bin/env ipython
 
-from pyautogui import hotkey, press, write
+from re import match
+from fpdf import FPDF
+import os
 from rofi import Rofi
+from datetime import date
+from time import sleep
+import email_list
+import multiprocessing
+
+documents = "/home/suphal/Documents/"
+downloads = "/home/suphal/Downloads/"
 
 
-def new_page():
-    hotkey("alt", "p")
-    sleep(1)
-    press("n")
-    sleep(2)
+def insert_img(x):
+    global downloads
+    image_location = downloads + x
+    pdf.image(image_location, x=0, y=0, w=8.27, h=11.69)
 
 
-def insert_image(x):
-    hotkey("alt", "i")
-    sleep(1)
-    press("return")
-    sleep(5)
-    write(x)
-    sleep(4)
-    press("return")
-    sleep(1)
-    press("return")
-    sleep(6)
-    hotkey("alt", "n")
-    sleep(5)
+ls = os.listdir(downloads)
+pdf = FPDF("P", "in", "A4")
 
 
-def make_img(num):
-    sleep(2)
-    press("f4")
-    sleep(2)
-    if num != 0:
-        press("right")
-    hotkey("alt", "a")
-    write("270")
-    press("return")
-    sleep(3)
-    press("f4")
-    sleep(2)
-    press("left")
-    sleep(1)
-    hotkey("alt", "x")
-    write("-0.4")
-    hotkey("alt", "y")
-    write("-0.4")
-    hotkey("alt", "d")
-    write("8.5")
-    hotkey("alt", "e")
-    write("11")
-    press("return")
-    sleep(5)
-
-
-system("libreoffice -o /home/suphal/Documents/draft.odg & ")
-hotkey("winleft", "9")
-sleep(25)
-
-downloads = listdir("/home/suphal/Downloads/")
-
-num = 0
-for x in downloads:
-    if x[len(x) - 3] + x[len(x) - 2] + x[len(x) - 1] == "jpg":
-        y = x
-        new_page()
-        insert_image(y)
-        make_img(num)
-        num += 1
-
-r = Rofi().text_entry("Whose homework is this ?")
-name = r + "Homework" + str(datetime.now().date())
-
-sleep(1)
-hotkey("alt", "f")
-sleep(1)
-press("e")
-press("d")
-sleep(3)
-write(name)
-sleep(1)
-press("return")
-hotkey("winleft", "7")
-sleep(120)
-
-o = 0
-while o < 3:
-    e = Rofi().select(
-        "Would you like to send the email ?",
-        ["yes", "no"],
-        lines=2,
-        width=25,
-        key1=("y", "yes"),
-        key2=("n", "no"),
+def first_page():
+    global pdf
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 32)
+    pdf.set_author("")
+    pdf.set_creator("")
+    pdf.set_title("Homework")
+    pdf.set_fill_color(0, 0, 0)
+    pdf.set_text_color(255, 255, 255)
+    pdf.rect(0, 0, 8.27, 11.69, "FD")
+    pdf.set_xy(1.5, 4)
+    pdf.multi_cell(
+        0, 0.5, "", 0, 2, "C"
     )
-    o += 1
-    sleep(30)
 
-if e == (0, 1):
-    hotkey("winleft", "5")
-    system(
-        "thunderbird --compose to="
-        + emails[r]
-        + ",subject=Homework,attachment=/home/suphal/Documents/"
-        + name
-        + ".pdf"
-    )
-    sleep(3)
-    write("Suphal Bhattarai (D6 Bio)")
-    system("mv /home/suphal/Downloads/*.jpg /home/suphal/for_deletion/")
+
+result = ""
+results = ""
+
+
+def get_input():
+    global result
+    global results
+    results = str(Rofi().text_entry("Whose homeowrk is this?")).upper()
+    result = results + "Homework" + str(date.today()) + ".pdf"
+
+
+p1 = multiprocessing.Process(target=first_page)
+p1.start()
+p2 = multiprocessing.Process(target=get_input)
+p2.start()
+
+for x in ls:
+    if match(".*.jpg", x):
+        p1.join()
+        pdf.add_page()
+        insert_img(x)
+
+p2.join()
+pdf.output(documents + result, "F")
+os.system("xdg-open " + documents + result + " &")
+
+mail = email_list.emails[results]
+
+sleep(10)
+os.system(
+    "thunderbird -compose \"to='"
+    + mail
+    + "',subject="
+    + result
+    + "',body=''\" "
+)
